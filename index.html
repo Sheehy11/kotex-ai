@@ -485,10 +485,36 @@ tr:hover td{background:rgba(109,40,217,.02)}
           </div>
         </div>
 
-        <!-- Step 2 参考笔记 -->
+        <!-- Step 2 内容方向（Ao素人文专属） -->
+        <div class="card" id="write-dir-card">
+          <div class="ch click" onclick="toggleColl('write-s-dir','write-a-dir')">
+            <div class="step">2</div>
+            <div class="ch-title">内容方向</div>
+            <span class="ch-sub">Ao 素人文专属，选填</span>
+            <span class="arrow open" id="write-a-dir">▼</span>
+          </div>
+          <div class="coll open" id="write-s-dir">
+            <div style="margin-bottom:8px">
+              <div class="flabel" style="margin-bottom:6px">内容大类</div>
+              <div class="tgrp" id="tg-dir-cat" style="flex-wrap:wrap;gap:6px">
+                <button class="tbtn" data-cat="圈层热点" onclick="setDirCat(this)">圈层热点</button>
+                <button class="tbtn" data-cat="品类话题" onclick="setDirCat(this)">品类话题</button>
+                <button class="tbtn" data-cat="情绪向" onclick="setDirCat(this)">情绪向</button>
+                <button class="tbtn" data-cat="日常故事" onclick="setDirCat(this)">日常故事</button>
+              </div>
+            </div>
+            <div id="dir-sub-chips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+            <div>
+              <div class="flabel">具体场景/细节（选填）</div>
+              <input id="write-dir-detail" class="fi" type="text" placeholder="例：张学友演唱会 / 《玫瑰的故事》/ 和同事互借卫生巾"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 参考笔记 -->
         <div class="card">
           <div class="ch click" onclick="toggleColl('write-s2','write-a2')">
-            <div class="step">2</div>
+            <div class="step">3</div>
             <div class="ch-title">参考笔记</div>
             <span class="tag tg-pk" style="font-size:11px">SOSS必填</span>
             <div class="ch-sub">Ao素人文可跳过</div>
@@ -501,9 +527,9 @@ tr:hover td{background:rgba(109,40,217,.02)}
           </div>
         </div>
 
-        <!-- Step 3 生成 -->
+        <!-- Step 4 生成 -->
         <div class="card">
-          <div class="ch"><div class="step">3</div><div class="ch-title">一键生成稿件</div></div>
+          <div class="ch"><div class="step">4</div><div class="ch-title">一键生成稿件</div></div>
           <div class="abar">
             <div style="font-size:12px;color:var(--sub)">AI将严格按知识库标准创作，标题≤20字，无广告感</div>
             <button class="btn-pri" id="write-btn" onclick="doWrite()">生成稿件 ▶</button>
@@ -513,7 +539,7 @@ tr:hover td{background:rgba(109,40,217,.02)}
         <!-- 生成结果 -->
         <div class="card" id="write-result" style="display:none">
           <div class="ch">
-            <div class="step">4</div><div class="ch-title">生成结果</div>
+            <div class="step">5</div><div class="ch-title">生成结果</div>
             <div class="cbns" style="margin-left:auto">
               <button class="btn-sec btn-sm" onclick="sendWriteToReview()">→ 送审核</button>
               <button class="btn-sec btn-sm" onclick="copyWrite()">复制稿件</button>
@@ -1083,6 +1109,12 @@ window.onload = () => {
   loadLibrary();
   try { S.libraryPatterns = localStorage.getItem('kx_lib_patterns') || ''; } catch {}
   renderLibraryPatterns();
+  try { S.batchResults = JSON.parse(localStorage.getItem('kx_batch_results')||'[]'); } catch {}
+  if(S.batchResults.length){
+    buildBatchTable(S.batchResults);
+    document.getElementById('batch-result').style.display='';
+    document.getElementById('batch-actions').style.display='flex';
+  }
   document.getElementById('single-post').addEventListener('input',e=>{
     document.getElementById('sp-count').textContent=e.target.value.length;
   });
@@ -1198,6 +1230,8 @@ function setTog(gid,btn){
     const s=S.writeType==='soss';
     document.getElementById('fg-write-kw').style.display=s?'':'none';
     document.getElementById('fg-write-form').style.display=s?'':'none';
+    const dirCard=document.getElementById('write-dir-card');
+    if(dirCard) dirCard.style.display=s?'none':'';
   }
   if(gid==='tg-write-ad') S.writeAd=btn.dataset.v;
 }
@@ -1236,17 +1270,44 @@ function getLibraryContext(maxItems=30){
 }
 function addToLibrary(){
   const toAdd=S.batchResults.filter(r=>!S.library.some(l=>l.title===r.title));
+  if(!toAdd.length){toast('全部已在素材库中 ✓');return;}
   S.library=[...S.library,...toAdd];
   try{ localStorage.setItem('kx_library',JSON.stringify(S.library)); }catch(e){ toast('存储空间不足，请清空素材库后重试',3000);return; }
   updateLibraryCounter();
   toast(`已保存到素材库 +${toAdd.length} 篇（库中共 ${S.library.length} 篇）✓`);
 }
-function clearLibrary(){
-  if(!confirm('确认清空素材库中所有笔记？'))return;
-  S.library=[];
-  localStorage.removeItem('kx_library');
+function _autoMergeToLibrary(){
+  const toAdd=S.batchResults.filter(r=>!S.library.some(l=>l.title===r.title));
+  if(!toAdd.length) return;
+  S.library=[...S.library,...toAdd];
+  try{ localStorage.setItem('kx_library',JSON.stringify(S.library)); }catch{}
   updateLibraryCounter();
-  toast('素材库已清空');
+}
+function deleteBatchRow(title){
+  S.batchResults=S.batchResults.filter(r=>r.title!==title);
+  S.library=S.library.filter(r=>r.title!==title);
+  try{
+    localStorage.setItem('kx_batch_results',JSON.stringify(S.batchResults));
+    localStorage.setItem('kx_library',JSON.stringify(S.library));
+  }catch{}
+  updateLibraryCounter();
+  buildBatchTable(S.batchResults);
+  if(!S.batchResults.length){
+    document.getElementById('batch-result').style.display='none';
+    document.getElementById('batch-actions').style.display='none';
+  }
+  toast('已删除 ✓');
+}
+function clearLibrary(){
+  if(!confirm('确认清空全部数据？（素材库 + 批量打标结果）'))return;
+  S.library=[];
+  S.batchResults=[];
+  localStorage.removeItem('kx_library');
+  localStorage.removeItem('kx_batch_results');
+  updateLibraryCounter();
+  document.getElementById('batch-result').style.display='none';
+  document.getElementById('batch-actions').style.display='none';
+  toast('全部数据已清空');
 }
 
 // ══════════════════════════════════════════════
@@ -1383,7 +1444,11 @@ async function _runBatchChunks(btn, startIdx){
       });
     }
     buildBatchTable(S.batchResults);
-    if(!S.stopBatch) S.resumeChunkIndex=ci+1;
+    if(!S.stopBatch){
+      S.resumeChunkIndex=ci+1;
+      _autoMergeToLibrary();
+      try{ localStorage.setItem('kx_batch_results',JSON.stringify(S.batchResults)); }catch{}
+    }
   }
 
   document.getElementById('batch-progress').style.display='none';
@@ -1398,7 +1463,7 @@ async function _runBatchChunks(btn, startIdx){
     btn.textContent='批量打标 ▶'; btn.onclick=doBatchAnalyze; btn.disabled=false;
     if(S.batchResults.length){
       document.getElementById('batch-actions').style.display='flex';
-      toast(`批量分析完成：${S.batchResults.length} 篇 ✓`,3000);
+      toast(`批量分析完成：${S.batchResults.length} 篇 · 已自动保存到素材库 ✓`,3000);
     }
   }
 }
@@ -1499,6 +1564,7 @@ function buildBatchTable(results){
       <td>${esc(r.tags.沟通策略)}</td>
       <td>
         <button class="btn-sec btn-sm" onclick="openDeep('${esc(r.title.replace(/'/g,"\\'"))}','${esc((r.tags.互动原始||'').replace(/'/g,"\\'"))}')">深度拆解</button>
+        <button class="btn-sec btn-sm" style="color:var(--err);border-color:var(--err);margin-top:4px" onclick="deleteBatchRow('${esc(r.title.replace(/'/g,"\\'"))}')">删除</button>
         ${r.url?`<br><a href="${esc(r.url)}" target="_blank" style="font-size:11px;color:var(--g1)">查看原文</a>`:''}
       </td>
     </tr>`;
@@ -1730,15 +1796,22 @@ function renderLibraryPatterns(){
   const display=document.getElementById('lib-patterns-display');
   const count2=document.getElementById('lib-patterns-count2');
   const count=document.getElementById('lib-patterns-count');
+  const pCard=document.getElementById('patterns-card');
+  const pBody=document.getElementById('patterns-body');
+  const pLabel=document.getElementById('patterns-src-label');
   if(S.libraryPatterns){
     if(display) display.innerHTML=`<div class="rc">${md(S.libraryPatterns)}</div>`;
     const lines=S.libraryPatterns.split('\n').filter(l=>l.trim()).length;
     if(count2) count2.textContent='已生成';
     if(count) count.textContent=lines;
+    if(pCard) pCard.style.display='';
+    if(pBody) pBody.innerHTML=md(S.libraryPatterns);
+    if(pLabel&&!pLabel.textContent) pLabel.textContent='已加载';
   } else {
     if(display) display.innerHTML=`<div class="lib-empty"><div class="lib-empty-icon">📦</div><div>暂无内容资产<br>请先在「品牌知识库」上传数据，批量打标后点击「提炼内容资产」</div></div>`;
     if(count2) count2.textContent='—';
     if(count) count.textContent='0';
+    if(pCard) pCard.style.display='none';
   }
 }
 
@@ -2118,23 +2191,172 @@ function doCopyAnalyze(){
 // ══════════════════════════════════════════════
 // 文案 AGENT
 // ══════════════════════════════════════════════
-const WRITE_SYS = `你是高洁丝品牌资深内容创作者，精通小红书和抖音的素人种草内容写作。
-
-【角色定位】写出来的文字必须像真实素人用户自己写的，有真实感和生活气息，绝不能有广告感。
+const WRITE_SYS = `你是一个普通的小红书用户，正在分享真实的生活经历和感受。你不是品牌方，不是营销人员，你完全不懂什么是"广告"或"种草"。你只是在记录真实发生过的事情。
 
 【输出格式】直接输出完整稿件，不加任何说明或解释：
 标题：（严格≤20字）
 正文：（完整内容）
 Tag：（#xxx #xxx #xxx）
 
-【写作铁律——与下方知识库同等优先级，两者冲突时从严执行】
-1. 标题严格≤20字（含标点和emoji），超出即不合格
-2. 禁止用"姨妈"，使用"月经"或"经期"
-3. 禁止"性价比""便宜""划算"等价格相关表述
-4. 产品出场须在第2-3段之后自然融入，不可开篇即推产品
-5. 内容须有轻微吐槽或小缺点让内容有真实感，不能全是优点
-6. 场景必须真实可信，符合普通人日常行为常识
-7. 严禁出现夸张失真场景（如经血流地/把卫生巾藏进袖子等）`;
+【素人文创作铁律——违反任何一条即推倒重写】
+1. 标题≤20字，不出现产品名或功效描述词，用情绪/场景/人物做钩子
+2. 笔记主角是故事/人/场景，产品只是第3段以后才出现的配角
+3. 开头第一段：完全建立场景和情绪，绝对不出现产品名称和功效描述
+4. 非报备：全文不出现产品名/品牌名，可用"手边的那款""用的这个"代替
+5. 报备：产品名在第3段以后出现，全文最多1-2次，不连续出现
+6. 产品融入方式：是"刚好带了/一直在用的/用了之后感觉"——顺带一提，不是要推荐它
+7. 全文必须有一处轻微吐槽/不满/小缺点，让内容有真实感
+8. 禁用词：推荐/安利/真的好用/强烈推荐/宝藏/绝绝子，及任何直接产品评价词汇
+9. 严禁使用"姨妈"，统一写"月经"或"经期"
+10. 严禁价格相关词汇（性价比/便宜/划算）
+
+【以下为6篇真实优质素人文，分析其叙事节奏和产品植入方式，按此风格创作】
+
+【示例1：非报备·影视热点·海岛棉·打破月经羞耻】
+标题：20多年前的港片，已经大聊月经了
+正文：重温这部二十多年前的电影《当男人变成女人》，放在今天看依然超级前卫！
+
+这部电影的设定本身就很带感，讲述了一个极度大男子主义的男人，阴差阳错下体验了做女人的种种艰辛。
+
+而且截图的这一幕堪称全片高光：两位男主去超市买卫生巾，面对周围大爷大妈看外星人一样打量的目光，他们反而拿着五颜六色的卫生巾大声地怼了回去。
+
+感慨一下，20多年前的影视作品，就已经在用这么前卫、甚至带点黑色幽默的方式，去尝试打破所谓的"月经羞耻"了。电影试图告诉大家：这不过是再正常不过的日用品。
+
+但反观现在，我们真的完全摆脱这种羞耻感了吗？好像并没有。去超市买卫生巾，有时还是会被店员习惯性地装进黑色塑料袋；在办公室或学校需要去卫生间，还是会下意识地把卫生巾藏在袖口或口袋里。明明是再正常不过的生理现象，却好像还是没法在每一个环境里都做到毫无顾忌。
+
+所以也真心希望，下次拿出卫生巾的时候，能够大大方方拿在手里。如果撞上异样的眼光，我们能像男主一样，理直气壮地反问一句："买卫生巾有什么奇怪的？"
+
+如果20年前的电影都在教我们坦荡，20年后的我们更没理由被困在羞耻感里。请所有的女孩子们：大大方方地买卫生巾，大大方方地拿卫生巾，大大方方地用卫生巾！
+Tag：#打破月经羞耻 #月经羞耻 #当男人变成女人 #女性力量 #电影推荐 #女性健康 #拒绝月经羞耻
+→ 以电影切入社会议题，全文不出现产品名，情感层层递进，结尾有号召力，读者完全看不出是广告
+
+【示例2：报备·影视《好东西》·蔓越莓】
+标题：月经不是💩，你怕它做什么？😅
+正文：谁来懂一下！《好东西》里小孩说出"月经又不是屎"的时候爽的我乳腺通畅！
+连小孩子都知道，月经就是女人流的血，而世界上一半的人类都在流血，所以请问那些谈"经"色变的人，到底在怕什么？！
+
+在遭遇月经偏见的同时，现实中还有很多姐妹因为闷热、异味、瘙痒而难受…小叶曾经忍痛吃药，我们有时连选卫生巾也在凑合。
+
+不过自从我用过高洁丝蔓越莓益生力卫生巾再也没让我在经期凑合过了，它的蔓越莓益生元能抑菌防味，私处敏感、长痘的痛大家都懂，但月经不是敌人！
+
+就像小孩说的："把你的日子也告诉我吧"——我们要彼此支持，更要给自己更好的呵护。从这款卫生巾开始，告别别扭，舒舒服服做女生！
+Tag：#好东西 #女子就是强 #高洁丝蔓越莓卫生巾 #月经那些事 #女性健康 #拒绝月经羞耻
+→ 从电影名句引入痛点，产品在第3段自然出现且仅1次，情感主线贯穿，产品是"解决方案"而非主角
+
+【示例3：非报备·地铁互助贩卖机】
+标题：报！上海地铁站也有卫生巾
+正文：昨天刷到郑州地铁有提供免费卫生巾，有需要直接拿！评论区说郑州这方面一直很好，很多地方有互助盒。
+
+今天自己又路过上海地铁站，看到卫生巾的自动贩卖机，每月可以免费领！问了旁边的工作人员，说很多城市的很多地铁站都有投放~
+
+时代真心是好起来了呀！！！真正看见女性需求，把卫生巾放在女生们触手可及的地方，真是夯爆了！！！
+
+这还真是最近听到的第一个好消息呀——喜报！！！
+Tag：#地铁免费卫生巾 #卫生巾 #地铁暖心服务 #女性出行 #卫生巾互助 #喜报
+→ 新闻发现型，有具体时间地点，情绪真实，正文不出现品牌名，读来像真实见闻
+
+【示例4：非报备·职场搭子·蔓越莓】
+标题：🩸和职场青梅是"带血"的交情
+正文：上班可以没有老板，但是不能没有搭子。如果说上班搭子还同时是彼此的"青梅牛马"，那更是夯中之夯，离不开对方的程度。
+
+我俩的交情都不能用"过硬"来形容了，那都是"带血"的交情了。
+
+作为两个记性奇差的二旬老人，每月总有那么几天在工位下面互戳："你带卫生巾了吗？"其中一个没带的时候，全靠对方借的几片续命。
+
+这种革命友谊甚至让我们精准掌握了彼此的奇葩偏好——她用不惯太长的，我怕侧漏只带夜用的。神奇的是，这么久互相"扶贫"，她的口味竟然被我带偏了。昨天还给我发消息："你上次买的那个是啥？给我抄下作业。"
+
+更可怕的是，天天相处久了，我俩现在来月经的时间都越来越一致。从红糖姜茶、暖宝宝、到卫生巾，完全开始"拼好经"了😋
+Tag：#上班搭子 #神仙同事 #月经互助 #职场日常 #青梅牛马
+→ 全程以职场搭子情感为主线，产品完全隐去（只有互借动作），真实生活细节极强，没有任何功效描述
+
+【示例5：非报备·大字报·经期摆烂】
+标题：女生经期摆烂指南！
+正文：谁规定女生经期就必须忍受不舒服？我偏要理直气壮地摆烂🙅‍♀️
+
+我在痛经的日子，直接打车上班，能坐着绝不站着，能躺着绝不坐着，累活全交给别人🚶‍♀️
+在量多的日子，卫生巾直接换成抑菌防异味的安心款，主打一个省心。
+不想洗头就去理发店，不想社交就直接沉默，不用逼自己去讨好任何人。
+
+经期本来就很辛苦了，千万别再给自己增加难度啦💆‍♀️
+把那些不舒服的体验统统拉黑，顺从自己的身体需求。
+拒绝经期内耗，这段时间我们只对自己负责！
+Tag：#经期日常 #女生必看 #经期好物 #拒绝内耗 #爱自己 #好物分享
+→ 宣言式大字报，不出现任何品牌名，用"抑菌防异味的安心款"代替，态度是主线，产品是道具
+
+【示例6：报备·卫生巾焦虑·阳光烘烘】
+标题：是谁懂了？！女生的集体潜意识👇
+正文：把发圈戴在手腕上，虽然不是时刻需要，但就怕哪一下头发散了没东西绑。
+
+卫生巾放在包里，也是这个道理——永远不知道月经会什么时候突然来。这种"时刻准备着"的状态，几乎成了每个女人的集体潜意识。
+
+因为我们不知道，急需的那一刻，地铁站、图书馆、高铁上，是否能有一片给我们应急。为了以备不时之需，也为了在别人需要的时候可以提供帮助，我现在常常会带上高洁丝阳光烘烘卫生巾。
+
+最让我放心的是它100%纯棉面层和99.9%的抑菌效果，能避免敏感和不适。
+
+这种随身备好的卫生巾，就像手腕上的发圈一样，无需时刻挂在心上，但能时刻待命。不过，也真的希望有一天，女性可以不必时刻带上卫生巾，那才是真正的安心。
+Tag：#高洁丝阳光烘烘卫生巾 #卫生巾自由 #女性日常 #随身好物 #安心之选
+→ 以"发圈"比喻开头建立共情，卫生巾焦虑作为情感主线，产品在第3段出现且只出现1次，情感收尾而非功效总结`;
+
+// ══════════════════════════════════════════════
+// 内容方向数据 + 差异化种子
+// ══════════════════════════════════════════════
+const DIR_SUBS = {
+  '圈层热点': ['演唱会追星','热门剧集追剧','综艺节目','体育赛事'],
+  '品类话题': ['女性互助/借卫生巾','初潮故事','月经焦虑','月经庆祝/正常化','经期小洞察','卫生巾的其它用法','地铁站/商场互助贩卖机'],
+  '情绪向':   ['女性成长','女性友谊','自我和解/爱自己'],
+  '日常故事': ['父女/母女','情侣','闺蜜/室友','职场搭子']
+};
+const WRITE_VARIATION_SEEDS = [
+  '叙事视角：第一人称亲历，时间锚点用"上周/前天/昨晚"等具体词',
+  '叙事视角：以"我闺蜜/我同事跟我说"为引子的间接经历',
+  '开场方式：先写一个情绪/感受瞬间，再交代场景背景',
+  '开场方式：先写具体场景画面（时间+地点+人物），再带入情感',
+  '开场方式：以一个反常/意外/搞笑的小细节开头',
+  '情绪主线：焦虑→意外发现→释然',
+  '情绪主线：习以为常→某个细节触动→重新认识',
+  '情绪主线：好奇/发现→探索→想分享给朋友',
+  '文字风格：短句密集，语气词多（真的/竟然/谁懂/诶），段落≤3句',
+  '文字风格：故事感强，有清晰的起因/经过/转折/结尾',
+  '互动设计：结尾以"你们有没有..."或"就我这样吗？"召唤评论',
+  '互动设计：结尾设计选边站"A还是B"引发讨论',
+];
+function setDirCat(btn){
+  document.querySelectorAll('#tg-dir-cat .tbtn').forEach(b=>b.classList.toggle('on',b===btn));
+  const cat=btn.dataset.cat;
+  const subs=DIR_SUBS[cat]||[];
+  const chips=document.getElementById('dir-sub-chips');
+  if(!chips) return;
+  chips.style.display='flex';
+  chips.innerHTML=subs.map(s=>`<button class="tbtn" style="font-size:12px;padding:4px 10px" onclick="setDirSub(this,'${s.replace(/'/g,"\\'")}')"><span>${s}</span></button>`).join('');
+  const det=document.getElementById('write-dir-detail');
+  if(det) det.placeholder=`例：${{
+    '圈层热点':'张学友演唱会 / 《玫瑰的故事》/ 某综艺节目名',
+    '品类话题':'初中第一次来月经 / 高铁上借卫生巾',
+    '情绪向':'毕业后和闺蜜漂在同个城市',
+    '日常故事':'和同事互借卫生巾发现有默契'
+  }[cat]||'具体场景细节'}`;
+}
+function setDirSub(btn,sub){
+  btn.parentElement.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function buildWriteDirection(){
+  const catBtn=document.querySelector('#tg-dir-cat .tbtn.on');
+  const subBtn=document.querySelector('#dir-sub-chips .tbtn.on');
+  const detail=document.getElementById('write-dir-detail')?.value.trim()||'';
+  const cat=catBtn?.dataset.cat||'';
+  const sub=subBtn?.querySelector('span')?.textContent||'';
+  if(!cat&&!detail) return '';
+  let d='';
+  if(cat) d+=`内容大方向：${cat}`;
+  if(sub) d+=`\n切入角度：${sub}`;
+  if(detail) d+=`\n具体场景：${detail}`;
+  return d;
+}
+function getWriteVariationSeed(){
+  const s=[...WRITE_VARIATION_SEEDS].sort(()=>Math.random()-0.5);
+  return `\n\n【差异化创作指令——此次必须采用，确保与上次生成有明显区别】\n主线：${s[0]}\n辅助：${s[1]}`;
+}
 
 async function doWrite(){
   if(!S.key&&!PROXY_URL){openModal();toast('请先配置 API Key',3000);return;}
@@ -2143,19 +2365,33 @@ async function doWrite(){
   const kw=document.getElementById('inp-write-kw')?.value.trim()||'';
   const form=document.getElementById('sel-write-form')?.value||'';
   const ref=document.getElementById('ref-write-post').value.trim();
-  const typeLabel=S.writeType==='soss'?'SOSS搜索词下浮现':'Ao素人文';
   const adLabel=S.writeAd==='rep'?'报备':'非报备';
+  const direction=S.writeType==='ao'?buildWriteDirection():'';
+  const variationSeed=S.writeType==='ao'?getWriteVariationSeed():'';
 
-  const usr=`请为以下需求创作一篇完整稿件：
+  const usr=S.writeType==='ao'
+    ?`请创作一篇小红书帖子：
+
+产品：高洁丝${product}（${adLabel}）
+平台：${platform}
+${direction?'【内容方向】\n'+direction+'\n':''}
+【创作核心要求】
+- 标题≤20字，不出现产品名或功效描述词
+- 第一段完全建立场景和情绪，零产品信息
+- ${S.writeAd==='rep'?'产品名出现1次，在第3段以后，顺带提及，不是推销重点':'全文不出现产品名/品牌名，用"手边的卫生巾/用的那款"替代'}
+- 必须有一处轻微吐槽或小缺点，让内容有真实感
+${variationSeed}${ref?'\n\n参考笔记（参考其真实口吻和风格，不必照搬结构）：\n'+ref:''}
+
+直接输出稿件（标题、正文、Tag），不要任何说明或前缀。`
+    :`请为以下需求创作一篇完整稿件：
 
 产品：高洁丝${product}
-类型：${typeLabel}（${adLabel}）
+类型：SOSS搜索词下浮现（${adLabel}）
 平台：${platform}
-${S.writeType==='soss'&&kw?'搜索词：'+kw+'\n内容形式：'+form+'\n':''}${ref?'\n参考笔记（须仿照其结构和段落划分）：\n'+ref+'\n':''}
+${kw?'搜索词：'+kw+'\n内容形式：'+form+'\n':''}${ref?'\n参考笔记（须仿照其结构和段落划分）：\n'+ref+'\n':''}
 要求：
 - 标题严格≤20字，这是硬性红线
-- 内容真实自然，以真实用户口吻，无广告感
-- ${S.writeType==='soss'?'搜索词须出现在标题、正文前50字、tag':'内容创意有趣，符合真实生活场景'}
+- 搜索词须出现在标题、正文前50字、tag
 - ${S.writeAd==='rep'?'可露出品牌名称和产品名':'禁止在标题、文案、tag中提及产品和品牌名称'}
 
 直接输出稿件（标题、正文、Tag），不要任何说明或前缀。`;
