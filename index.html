@@ -6939,7 +6939,7 @@ async function responseError(response,label='内容服务'){
 async function streamProxy(sys,usr,cb,signal,requestId){
   const token=sessionStorage.getItem('a3_session')||'';
   if(!token)throw new Error('共享内容服务尚未登录，请刷新页面后重新输入访问密码。');
-  const headers={'Content-Type':'application/json','Authorization':`Bearer ${token}`,'X-Request-ID':requestId},body={system:sys,messages:[{role:'user',content:usr}],stream:false};
+  const headers={'Content-Type':'application/json','Authorization':`Bearer ${token}`},body={system:sys,messages:[{role:'user',content:usr}],stream:false};
   let r;
   try{r=await fetch(PROXY_URL,{method:'POST',headers,body:JSON.stringify(body),signal});}
   catch(e){if(e?.name==='AbortError')throw e;throw new Error(`无法连接共享内容服务，请检查网络后重试（请求编号：${requestId}）`);}
